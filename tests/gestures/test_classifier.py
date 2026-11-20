@@ -85,6 +85,31 @@ def test_pinch():
     assert classify(hand) == Gesture.PINCH
 
 
+
+def test_pinch_with_left_hand_tolerance():
+    hand = make_hand()
+    # Pequeno afastamento entre as pontas: fora do limite padrão,
+    # mas dentro da tolerância adicional configurada para a mão esquerda.
+    points = hand.copy()
+    points[4] = (points[8][0] + 0.07, points[8][1], points[8][2])
+
+    assert classify(points) == Gesture.UNKNOWN
+    assert classify(points, pinch_threshold=0.32) == Gesture.PINCH
+
+
+def test_pinch_threshold_does_not_change_open_palm():
+    hand = make_hand(
+        extended=(True, True, True, True),
+        thumb_extended=True,
+    )
+
+    assert classify(hand, pinch_threshold=0.32) == Gesture.OPEN_PALM
+
+
+def test_invalid_pinch_threshold():
+    with pytest.raises(ValueError):
+        classify(make_hand(), pinch_threshold=1.1)
+
 def test_invalid_landmark_count():
     with pytest.raises(ValueError):
         classify([(0.0, 0.0, 0.0)] * 10)
