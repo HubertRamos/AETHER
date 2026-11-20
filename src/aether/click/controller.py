@@ -9,7 +9,7 @@ class ClickController:
     def __init__(
         self,
         double_click_interval: float = 0.28,
-        max_pinch_duration: float = 0.20,
+        max_pinch_duration: float = 0.45,
     ) -> None:
         for name, value in (
             ("double_click_interval", double_click_interval),
