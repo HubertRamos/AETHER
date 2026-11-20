@@ -4,7 +4,7 @@ from aether.gestures.types import Gesture
 
 
 class ClickController:
-    """Recognizes quick pinch releases as single or double clicks."""
+    """Recognizes brief open-palm releases as single or double clicks."""
 
     def __init__(
         self,
@@ -24,7 +24,7 @@ class ClickController:
                 raise ValueError(f"{name} must be positive")
         self.double_click_interval = float(double_click_interval)
         self.max_pinch_duration = float(max_pinch_duration)
-        self._pinching = False
+        self._open_palm_active = False
         self._press_started_at: float | None = None
         self._pending_click_at: float | None = None
         self._second_press = False
@@ -62,9 +62,9 @@ class ClickController:
             self._pending_click_at = None
             emitted = 1
 
-        pinching = gesture == Gesture.PINCH
-        if pinching and not self._pinching:
-            self._pinching = True
+        open_palm_active = gesture == Gesture.OPEN_PALM
+        if open_palm_active and not self._open_palm_active:
+            self._open_palm_active = True
             self._press_started_at = now
             self._second_press = (
                 self._pending_click_at is not None
@@ -73,9 +73,9 @@ class ClickController:
             if not self._second_press:
                 self._pending_click_at = None
 
-        elif not pinching and self._pinching:
+        elif not open_palm_active and self._open_palm_active:
             duration = now - self._press_started_at
-            self._pinching = False
+            self._open_palm_active = False
             self._press_started_at = None
             if duration <= self.max_pinch_duration:
                 if self._second_press:
@@ -93,7 +93,7 @@ class ClickController:
         return emitted
 
     def reset(self) -> None:
-        self._pinching = False
+        self._open_palm_active = False
         self._press_started_at = None
         self._pending_click_at = None
         self._second_press = False
