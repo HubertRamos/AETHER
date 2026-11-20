@@ -1,5 +1,6 @@
 
 from collections.abc import Mapping, Set
+from math import isfinite
 
 from aether.gestures.types import Gesture
 
@@ -18,6 +19,8 @@ class PointerPipeline:
         pointer_hand: str,
         smoothing_alpha: float = 0.35,
         calibration: PointerCalibration | None = None,
+        mode: str = "absolute",
+        relative_sensitivity: float = 2.0,
     ) -> None:
         if not isinstance(controller, PointerController):
             raise TypeError("controller must be a PointerController")
@@ -30,10 +33,38 @@ class PointerPipeline:
         ):
             raise TypeError("calibration must be a PointerCalibration or None")
 
+        if mode not in ("absolute", "relative"):
+            raise ValueError("mode must be 'absolute' or 'relative'")
+
+        if (
+            isinstance(relative_sensitivity, bool)
+            or not isinstance(relative_sensitivity, (int, float))
+        ):
+            raise TypeError("relative_sensitivity must be a number")
+
+        if not isfinite(relative_sensitivity) or relative_sensitivity <= 0:
+            raise ValueError("relative_sensitivity must be positive and finite")
+
         self.controller = controller
         self.pointer_hand = pointer_hand
         self.smoother = PointerSmoother(smoothing_alpha)
         self.calibration = calibration or PointerCalibration()
+        self.mode = mode
+        self.relative_sensitivity = float(relative_sensitivity)
+
+        self._relative_anchor: PointerPosition | None = None
+
+        center_x = (
+            self.calibration.screen_left
+            + self.calibration.screen_right
+        ) / 2
+
+        center_y = (
+            self.calibration.screen_top
+            + self.calibration.screen_bottom
+        ) / 2
+
+        self._last_pointer_position = PointerPosition(center_x, center_y)
 
     def process(
         self,
@@ -84,15 +115,50 @@ class PointerPipeline:
 
         if not allowed:
             self.smoother.reset()
+            self._relative_anchor = None
             return self.controller.process(None, enabled=False)
 
         smoothed_position = self.smoother.process(position)
         calibrated_position = self.calibration.transform(smoothed_position)
 
-        return self.controller.process(
-            calibrated_position,
-            enabled=True,
-        )
+        if self.mode == "absolute":
+            target = calibrated_position
+
+        else:
+            if self._relative_anchor is None:
+                # Start or resume tracking without moving the cursor.
+                self._relative_anchor = calibrated_position
+                target = self._last_pointer_position
+
+            else:
+                delta_x = (
+                    calibrated_position.x - self._relative_anchor.x
+                ) * self.relative_sensitivity
+
+                delta_y = (
+                    calibrated_position.y - self._relative_anchor.y
+                ) * self.relative_sensitivity
+
+                target_x = self._last_pointer_position.x + delta_x
+                target_y = self._last_pointer_position.y + delta_y
+
+                target = PointerPosition(
+                    max(
+                        self.calibration.screen_left,
+                        min(self.calibration.screen_right, target_x),
+                    ),
+                    max(
+                        self.calibration.screen_top,
+                        min(self.calibration.screen_bottom, target_y),
+                    ),
+                )
+
+            self._relative_anchor = calibrated_position
+            self._last_pointer_position = target
+
+        return self.controller.process(target, enabled=True)
 
     def reset(self) -> None:
+        """Reset hand tracking while preserving the current cursor position."""
         self.smoother.reset()
+        self._relative_anchor = None

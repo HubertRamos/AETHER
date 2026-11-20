@@ -41,8 +41,20 @@ def main():
         default="dry-run",
     )
 
-    parser.add_argument("--screen-width", type=int, default=1366)
-    parser.add_argument("--screen-height", type=int, default=768)
+    parser.add_argument("--screen-width", type=int, default=682)
+    parser.add_argument("--screen-height", type=int, default=368)
+
+    parser.add_argument(
+        "--pointer-mode",
+        choices=("absolute", "relative"),
+        default="relative",
+    )
+
+    parser.add_argument(
+        "--pointer-sensitivity",
+        type=float,
+        default=2.0,
+    )
 
     args = parser.parse_args()
 
@@ -84,9 +96,12 @@ def main():
     pipeline = ActionPipeline()
 
     pointer_controller = PointerController(pointer_backend)
+
     pointer_pipeline = PointerPipeline(
         pointer_controller,
         pointer_hand="Right",
+        mode=args.pointer_mode,
+        relative_sensitivity=args.pointer_sensitivity,
     )
 
     event_log = deque(maxlen=8)
@@ -407,10 +422,12 @@ def main():
                 )
 
                 backend_label = args.pointer_backend.upper()
+                mode_label = args.pointer_mode.upper()
 
                 cv2.putText(
                     frame,
-                    f"POINTER ({backend_label}): {pointer_status}",
+                    f"POINTER ({backend_label} | {mode_label}): "
+                    f"{pointer_status}",
                     (15, pointer_y),
                     cv2.FONT_HERSHEY_SIMPLEX,
                     0.48,
