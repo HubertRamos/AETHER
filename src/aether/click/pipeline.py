@@ -47,14 +47,23 @@ class ClickPipeline:
         if any(not isinstance(hand, str) for hand in suppressed_hands):
             raise TypeError("suppressed hand labels must be strings")
 
-        visible = self.click_hand in gestures
-        gesture = gestures.get(self.click_hand, Gesture.UNKNOWN)
-        if self.click_hand in suppressed_hands:
-            visible = False
+        suppressed = self.click_hand in suppressed_hands
+        detected = self.click_hand in gestures
+
+        # A brief camera dropout is treated as a release, not as a reset.
+        # This preserves a recognized pinch and lets its click complete.
+        # Explicit suppression or deactivation still cancels all pending input.
+        if not enabled or suppressed:
+            gesture = Gesture.UNKNOWN
+            hand_visible = False
+        else:
+            gesture = gestures.get(self.click_hand, Gesture.UNKNOWN)
+            hand_visible = True
+
         count = self.controller.process(
             gesture,
             now=now,
-            hand_visible=visible,
+            hand_visible=hand_visible,
             enabled=enabled,
         )
         if count:
