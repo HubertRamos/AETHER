@@ -59,6 +59,7 @@ def _finger_extended(
 def classify(
     landmarks,
     image_aspect_ratio: float = 4 / 3,
+    pinch_threshold: float = 0.25,
 ) -> Gesture:
     """
     Classifica uma mão usando os 21 landmarks do MediaPipe.
@@ -73,6 +74,9 @@ def classify(
 
     if image_aspect_ratio <= 0:
         raise ValueError("Aspect ratio deve ser positivo.")
+
+    if not 0.0 <= pinch_threshold <= 1.0:
+        raise ValueError("pinch_threshold deve estar entre 0 e 1.")
 
     points = [
         _point(landmark)
@@ -117,7 +121,7 @@ def classify(
         _distance(points[4], points[8]) / palm_width
     )
 
-    if pinch_distance <= 0.25:
+    if pinch_distance <= pinch_threshold:
         return Gesture.PINCH
 
     # Classificação dos gestos.
