@@ -4,13 +4,14 @@ from aether.gestures.types import Gesture
 
 
 class ClickController:
-    """Recognizes brief open-palm releases as single or double clicks."""
+    """Temporarily emits one click when OPEN_PALM first becomes stable."""
 
     def __init__(
         self,
         double_click_interval: float = 0.28,
         max_pinch_duration: float = 0.45,
     ) -> None:
+        # Keep the existing constructor contract during this diagnostic mode.
         for name, value in (
             ("double_click_interval", double_click_interval),
             ("max_pinch_duration", max_pinch_duration),
@@ -25,9 +26,6 @@ class ClickController:
         self.double_click_interval = float(double_click_interval)
         self.max_pinch_duration = float(max_pinch_duration)
         self._open_palm_active = False
-        self._press_started_at: float | None = None
-        self._pending_click_at: float | None = None
-        self._second_press = False
 
     def process(
         self,
@@ -53,47 +51,15 @@ class ClickController:
             self.reset()
             return 0
 
-        emitted = 0
-        if (
-            self._pending_click_at is not None
-            and not self._second_press
-            and now - self._pending_click_at > self.double_click_interval
-        ):
-            self._pending_click_at = None
-            emitted = 1
-
         open_palm_active = gesture == Gesture.OPEN_PALM
         if open_palm_active and not self._open_palm_active:
             self._open_palm_active = True
-            self._press_started_at = now
-            self._second_press = (
-                self._pending_click_at is not None
-                and now - self._pending_click_at <= self.double_click_interval
-            )
-            if not self._second_press:
-                self._pending_click_at = None
+            return 1
 
-        elif not open_palm_active and self._open_palm_active:
-            duration = now - self._press_started_at
+        if not open_palm_active:
             self._open_palm_active = False
-            self._press_started_at = None
-            if duration <= self.max_pinch_duration:
-                if self._second_press:
-                    self._pending_click_at = None
-                    self._second_press = False
-                    emitted = 2
-                else:
-                    self._pending_click_at = now
-            elif self._second_press:
-                self._second_press = False
-                self._pending_click_at = None
-                emitted = 1
-            else:
-                self._pending_click_at = None
-        return emitted
+
+        return 0
 
     def reset(self) -> None:
         self._open_palm_active = False
-        self._press_started_at = None
-        self._pending_click_at = None
-        self._second_press = False
