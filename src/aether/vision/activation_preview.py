@@ -21,6 +21,9 @@ from aether.pointer import (
     PointerPosition,
     YdotoolPointerBackend,
 )
+from aether.scroll.backend import EvdevScrollBackend
+from aether.scroll.controller import ScrollController
+from aether.scroll.pipeline import ScrollPipeline
 from aether.vision.preview import MODEL, draw_hand
 
 
@@ -104,6 +107,21 @@ def main():
         relative_sensitivity=args.pointer_sensitivity,
     )
 
+    # Touchpad Mode.
+    scroll_backend = EvdevScrollBackend()
+    scroll_controller = ScrollController(
+        sensitivity=500.0,
+        deadzone=0.025,
+        max_speed=1.0,
+        smoothing=0.20,
+    )
+
+    scroll_pipeline = ScrollPipeline(
+        controller=scroll_controller,
+        backend=scroll_backend,
+        scroll_hand="Right",
+    )
+
     event_log = deque(maxlen=8)
     suppressed_hands: set[str] = set()
 
@@ -159,6 +177,7 @@ def main():
                 detected = {}
                 raw_status = {}
                 pointer_positions = {}
+                scroll_positions = {}
 
                 for index, landmarks in enumerate(
                     result.hand_landmarks
@@ -186,9 +205,50 @@ def main():
                     detected[label] = raw_gesture
                     raw_status[label] = raw_gesture
 
+                    # Posição do indicador para o Pointer.
                     pointer_positions[label] = PointerPosition(
-                        max(0.0, min(1.0, float(landmarks[8].x))),
-                        max(0.0, min(1.0, float(landmarks[8].y))),
+                        max(
+                            0.0,
+                            min(1.0, float(landmarks[8].x)),
+                        ),
+                        max(
+                            0.0,
+                            min(1.0, float(landmarks[8].y)),
+                        ),
+                    )
+
+                    # Ponto médio entre indicador e dedo médio
+                    # para o Touchpad.
+                                        # Centro da palma para controlar o Touchpad.
+                    palm_points = [
+                        landmarks[0],
+                        landmarks[5],
+                        landmarks[9],
+                        landmarks[13],
+                        landmarks[17],
+                    ]
+
+                    scroll_positions[label] = PointerPosition(
+                        max(
+                            0.0,
+                            min(
+                                1.0,
+                                float(
+                                    sum(point.x for point in palm_points)
+                                    / len(palm_points)
+                                ),
+                            ),
+                        ),
+                        max(
+                            0.0,
+                            min(
+                                1.0,
+                                float(
+                                    sum(point.y for point in palm_points)
+                                    / len(palm_points)
+                                ),
+                            ),
+                        ),
                     )
 
                     draw_hand(frame, landmarks, label)
@@ -278,7 +338,23 @@ def main():
                 ):
                     pointer_last_position = None
 
-                # 7. Histórico de ações simuladas.
+                # 7. Pipeline do Touchpad.
+                scroll_result = scroll_pipeline.process(
+                    scroll_positions,
+                    visible,
+                    elapsed,
+                    enabled=enabled,
+                    suppressed_hands=suppressed_hands,
+                )
+
+                scroll_active = (
+                    enabled
+                    and "Right" in scroll_positions
+                    and visible.get("Right") == Gesture.TWO_FINGERS
+                    and "Right" not in suppressed_hands
+                )
+
+                # 8. Histórico de ações simuladas.
                 for request in action_requests:
                     action_name = request.action.value.upper()
 
@@ -308,7 +384,7 @@ def main():
 
                     event_log.append(message)
 
-                # 8. Métricas.
+                # 9. Métricas.
                 frame_count += 1
 
                 if now - fps_window >= 1.0:
@@ -319,7 +395,7 @@ def main():
                 # Cabeçalho.
                 cv2.putText(
                     frame,
-                    "AETHER 1.2 | GESTURE SYNCHRONIZATION",
+                    "AETHER 1.3 | GESTURE SYNCHRONIZATION",
                     (15, 30),
                     cv2.FONT_HERSHEY_SIMPLEX,
                     0.60,
@@ -453,8 +529,42 @@ def main():
                     1,
                 )
 
+                # Estado do Touchpad.
+                scroll_y = pointer_y + 55
+
+                scroll_status = (
+                    "ACTIVE" if scroll_active else "INACTIVE"
+                )
+
+                scroll_color = (
+                    (80, 255, 100)
+                    if scroll_active
+                    else (150, 150, 150)
+                )
+
+                cv2.putText(
+                    frame,
+                    f"TOUCHPAD (EVDEV): {scroll_status}",
+                    (15, scroll_y),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.48,
+                    scroll_color,
+                    2,
+                )
+
+                cv2.putText(
+                    frame,
+                    f"VERTICAL: {scroll_result[0]} | "
+                    f"HORIZONTAL: {scroll_result[1]}",
+                    (15, scroll_y + 25),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.42,
+                    (220, 220, 220),
+                    1,
+                )
+
                 # Intenções ativas.
-                intent_y = 265
+                intent_y = 310
 
                 cv2.putText(
                     frame,
@@ -495,7 +605,7 @@ def main():
                     )
 
                 # Ações simuladas ativas.
-                action_y = 325
+                action_y = 370
 
                 cv2.putText(
                     frame,
@@ -534,7 +644,7 @@ def main():
                     )
 
                 # Histórico.
-                log_y = 385
+                log_y = 430
 
                 cv2.putText(
                     frame,
@@ -583,6 +693,7 @@ def main():
                 if key == ord("a"):
                     pipeline.reset()
                     pointer_pipeline.reset()
+                    scroll_pipeline.reset()
                     engine.reset()
                     suppressed_hands.clear()
 
@@ -595,6 +706,7 @@ def main():
                     activation.deactivate()
                     pipeline.reset()
                     pointer_pipeline.reset()
+                    scroll_pipeline.reset()
                     engine.reset()
                     suppressed_hands.clear()
                     pointer_last_position = None
@@ -607,6 +719,7 @@ def main():
                     activation.emergency_stop()
                     pipeline.reset()
                     pointer_pipeline.reset()
+                    scroll_pipeline.reset()
                     engine.reset()
                     suppressed_hands.clear()
                     pointer_last_position = None
@@ -621,6 +734,8 @@ def main():
     finally:
         pipeline.reset()
         pointer_pipeline.reset()
+        scroll_pipeline.reset()
+        scroll_backend.close()
         engine.reset()
         tracker.reset()
         camera.release()

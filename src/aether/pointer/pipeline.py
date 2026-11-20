@@ -162,3 +162,4 @@ class PointerPipeline:
         """Reset hand tracking while preserving the current cursor position."""
         self.smoother.reset()
         self._relative_anchor = None
+

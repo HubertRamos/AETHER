@@ -1,0 +1,33 @@
+ecodes.BTN_RIGHT,
+    ],
+    ecodes.EV_REL: [
+        ecodes.REL_X,
+        ecodes.REL_Y,
+        ecodes.REL_WHEEL,
+        ecodes.REL_HWHEEL,
+    ],
+}
+
+try:
+    with UInput(
+        capabilities,
+        name="AETHER Virtual Mouse",
+        bustype=ecodes.BUS_USB,
+    ) as device:
+        print("Mouse virtual criado!")
+        print("Passe o cursor sobre uma área com rolagem horizontal.")
+        input("Pressione Enter para começar...")
+
+        print("Rolando para a direita por 5 segundos...")
+
+        end = time.monotonic() + 5
+
+        while time.monotonic() < end:
+            device.write(ecodes.EV_REL, ecodes.REL_HWHEEL, 1)
+            device.syn()
+            time.sleep(0.05)
+
+        print("Teste concluído!")
+
+except Exception as error:
+    print(f"Erro: {error}")
