@@ -216,9 +216,12 @@ def main():
                             "Right": "Left",
                         }.get(handedness, handedness)
 
+                    # Margem um pouco maior apenas para a mão esquerda.
+                    # A direita preserva o limite padrão do classificador.
                     raw_gesture = classify(
                         landmarks,
                         image_aspect_ratio=aspect_ratio,
+                        pinch_threshold=0.32 if label == "Left" else 0.25,
                     )
 
                     detected[label] = raw_gesture
