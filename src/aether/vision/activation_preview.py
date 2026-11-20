@@ -476,6 +476,26 @@ def main():
                         2,
                     )
 
+                # Diagnóstico do Click Control.
+                left_gesture = visible.get("Left", Gesture.UNKNOWN)
+                click_status = (
+                    f"CLICK: {'ENABLED' if enabled else 'DISABLED'} | "
+                    f"LEFT {gesture_name(left_gesture)} | "
+                    f"SUPPRESSED: {'YES' if 'Left' in suppressed_hands else 'NO'} | "
+                    f"PRESS: {'YES' if click_pipeline.controller._pinching else 'NO'} | "
+                    f"PENDING: {'YES' if click_pipeline.controller._pending_click_at is not None else 'NO'}"
+                )
+
+                cv2.putText(
+                    frame,
+                    click_status,
+                    (15, 140),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.36,
+                    (80, 220, 255) if enabled else (150, 150, 150),
+                    1,
+                )
+
                 # Estado individual das mãos.
                 hand_offset = 165
 
