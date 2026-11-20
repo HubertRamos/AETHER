@@ -19,6 +19,7 @@ from aether.pointer import (
     PointerController,
     PointerPipeline,
     PointerPosition,
+    YdotoolPointerBackend,
 )
 from aether.vision.preview import MODEL, draw_hand
 
@@ -29,13 +30,32 @@ def gesture_name(gesture) -> str:
 
 def main():
     parser = argparse.ArgumentParser()
+
     parser.add_argument("--camera", type=int, default=0)
     parser.add_argument("--width", type=int, default=640)
     parser.add_argument("--height", type=int, default=480)
+
+    parser.add_argument(
+        "--pointer-backend",
+        choices=("dry-run", "ydotool"),
+        default="dry-run",
+    )
+
+    parser.add_argument("--screen-width", type=int, default=1366)
+    parser.add_argument("--screen-height", type=int, default=768)
+
     args = parser.parse_args()
 
     if not MODEL.exists():
         raise FileNotFoundError(f"Modelo ausente: {MODEL}")
+
+    if args.pointer_backend == "ydotool":
+        pointer_backend = YdotoolPointerBackend(
+            args.screen_width,
+            args.screen_height,
+        )
+    else:
+        pointer_backend = DryRunPointerBackend()
 
     camera = cv2.VideoCapture(args.camera, cv2.CAP_V4L2)
 
@@ -63,7 +83,6 @@ def main():
     activation = ActivationCoordinator()
     pipeline = ActionPipeline()
 
-    pointer_backend = DryRunPointerBackend()
     pointer_controller = PointerController(pointer_backend)
     pointer_pipeline = PointerPipeline(
         pointer_controller,
@@ -80,6 +99,8 @@ def main():
     fps_window = start
     frame_count = 0
     fps = 0.0
+
+    pointer_last_position: PointerPosition | None = None
 
     try:
         with mp.tasks.vision.HandLandmarker.create_from_options(
@@ -222,13 +243,25 @@ def main():
                     enabled=enabled,
                 )
 
-                # 6. Pipeline do ponteiro (DRY RUN).
+                # 6. Pipeline do ponteiro.
                 pointer_moved = pointer_pipeline.process(
                     pointer_positions,
                     visible,
                     enabled=enabled,
                     suppressed_hands=suppressed_hands,
                 )
+
+                if pointer_moved:
+                    pointer_last_position = (
+                        pointer_positions.get("Right")
+                    )
+                elif (
+                    not enabled
+                    or "Right" not in visible
+                    or visible.get("Right") != Gesture.POINT
+                    or "Right" in suppressed_hands
+                ):
+                    pointer_last_position = None
 
                 # 7. Histórico de ações simuladas.
                 for request in action_requests:
@@ -361,20 +394,10 @@ def main():
 
                 # Estado do ponteiro.
                 pointer_y = 220
-                last_position = (
-                    pointer_backend.positions[-1]
-                    if pointer_backend.positions
-                    else None
-                )
-
-                pointer_active = (
-                    pointer_moved and last_position is not None
-                )
+                pointer_active = pointer_moved
 
                 pointer_status = (
-                    "ACTIVE"
-                    if pointer_active
-                    else "INACTIVE"
+                    "ACTIVE" if pointer_active else "INACTIVE"
                 )
 
                 pointer_color = (
@@ -383,9 +406,11 @@ def main():
                     else (150, 150, 150)
                 )
 
+                backend_label = args.pointer_backend.upper()
+
                 cv2.putText(
                     frame,
-                    f"POINTER (DRY RUN): {pointer_status}",
+                    f"POINTER ({backend_label}): {pointer_status}",
                     (15, pointer_y),
                     cv2.FONT_HERSHEY_SIMPLEX,
                     0.48,
@@ -393,10 +418,10 @@ def main():
                     2,
                 )
 
-                if last_position is not None:
+                if pointer_last_position is not None:
                     pointer_coordinates = (
-                        f"X: {last_position.x:.3f} | "
-                        f"Y: {last_position.y:.3f}"
+                        f"X: {pointer_last_position.x:.3f} | "
+                        f"Y: {pointer_last_position.y:.3f}"
                     )
                 else:
                     pointer_coordinates = "X: -- | Y: --"
@@ -540,7 +565,7 @@ def main():
 
                 if key == ord("a"):
                     pipeline.reset()
-                    pointer_backend.reset()
+                    pointer_pipeline.reset()
                     engine.reset()
                     suppressed_hands.clear()
 
@@ -552,9 +577,10 @@ def main():
                 elif key == ord("d"):
                     activation.deactivate()
                     pipeline.reset()
-                    pointer_backend.reset()
+                    pointer_pipeline.reset()
                     engine.reset()
                     suppressed_hands.clear()
+                    pointer_last_position = None
 
                     event_log.append(
                         "SYSTEM: DEACTIVATION REQUESTED"
@@ -563,9 +589,10 @@ def main():
                 elif key == 27:
                     activation.emergency_stop()
                     pipeline.reset()
-                    pointer_backend.reset()
+                    pointer_pipeline.reset()
                     engine.reset()
                     suppressed_hands.clear()
+                    pointer_last_position = None
 
                     event_log.append(
                         "SYSTEM: EMERGENCY STOP"
@@ -576,7 +603,7 @@ def main():
 
     finally:
         pipeline.reset()
-        pointer_backend.reset()
+        pointer_pipeline.reset()
         engine.reset()
         tracker.reset()
         camera.release()
