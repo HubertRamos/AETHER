@@ -3,19 +3,21 @@ from collections.abc import Mapping, Set
 
 from aether.gestures.types import Gesture
 
+from .calibration import PointerCalibration
 from .controller import PointerController
 from .smoother import PointerSmoother
 from .types import PointerPosition
 
 
 class PointerPipeline:
-    """Connects stabilized hand gestures to smoothed pointer movement."""
+    """Connects stabilized hand gestures to calibrated pointer movement."""
 
     def __init__(
         self,
         controller: PointerController,
         pointer_hand: str,
         smoothing_alpha: float = 0.35,
+        calibration: PointerCalibration | None = None,
     ) -> None:
         if not isinstance(controller, PointerController):
             raise TypeError("controller must be a PointerController")
@@ -23,9 +25,15 @@ class PointerPipeline:
         if not isinstance(pointer_hand, str) or not pointer_hand.strip():
             raise ValueError("pointer_hand must be a non-empty string")
 
+        if calibration is not None and not isinstance(
+            calibration, PointerCalibration
+        ):
+            raise TypeError("calibration must be a PointerCalibration or None")
+
         self.controller = controller
         self.pointer_hand = pointer_hand
         self.smoother = PointerSmoother(smoothing_alpha)
+        self.calibration = calibration or PointerCalibration()
 
     def process(
         self,
@@ -76,16 +84,13 @@ class PointerPipeline:
 
         if not allowed:
             self.smoother.reset()
-
-            return self.controller.process(
-                None,
-                enabled=False,
-            )
+            return self.controller.process(None, enabled=False)
 
         smoothed_position = self.smoother.process(position)
+        calibrated_position = self.calibration.transform(smoothed_position)
 
         return self.controller.process(
-            smoothed_position,
+            calibrated_position,
             enabled=True,
         )
 
