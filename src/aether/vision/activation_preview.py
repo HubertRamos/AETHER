@@ -14,6 +14,12 @@ from aether.gestures.classifier import classify
 from aether.gestures.engine import GestureEngine
 from aether.gestures.tracker import HandTracker
 from aether.gestures.types import Gesture
+from aether.pointer import (
+    DryRunPointerBackend,
+    PointerController,
+    PointerPipeline,
+    PointerPosition,
+)
 from aether.vision.preview import MODEL, draw_hand
 
 
@@ -57,9 +63,14 @@ def main():
     activation = ActivationCoordinator()
     pipeline = ActionPipeline()
 
-    event_log = deque(maxlen=8)
+    pointer_backend = DryRunPointerBackend()
+    pointer_controller = PointerController(pointer_backend)
+    pointer_pipeline = PointerPipeline(
+        pointer_controller,
+        pointer_hand="Right",
+    )
 
-    # Mãos mantendo o gesto usado para confirmar a ativação.
+    event_log = deque(maxlen=8)
     suppressed_hands: set[str] = set()
 
     start = time.monotonic()
@@ -111,6 +122,7 @@ def main():
 
                 detected = {}
                 raw_status = {}
+                pointer_positions = {}
 
                 for index, landmarks in enumerate(
                     result.hand_landmarks
@@ -138,6 +150,11 @@ def main():
                     detected[label] = raw_gesture
                     raw_status[label] = raw_gesture
 
+                    pointer_positions[label] = PointerPosition(
+                        max(0.0, min(1.0, float(landmarks[8].x))),
+                        max(0.0, min(1.0, float(landmarks[8].y))),
+                    )
+
                     draw_hand(frame, landmarks, label)
 
                 # 1. Rastreamento.
@@ -155,7 +172,6 @@ def main():
                         "SYSTEM: ACTIVATION CONFIRMED"
                     )
 
-                    # Suprime o gesto usado para confirmar.
                     suppressed_hands = {
                         hand
                         for hand, gesture in visible.items()
@@ -176,12 +192,9 @@ def main():
                             suppressed_hands.discard(hand)
 
                     if not suppressed_hands:
-                        # A confirmação terminou.
-                        # O gesto atual será tratado como um novo início.
                         engine.reset()
                         gesture_events = engine.update(visible)
                     else:
-                        # Ainda está mantendo a palma de confirmação.
                         gesture_events = []
 
                 elif not confirmed:
@@ -209,7 +222,15 @@ def main():
                     enabled=enabled,
                 )
 
-                # 6. Histórico de ações simuladas.
+                # 6. Pipeline do ponteiro (DRY RUN).
+                pointer_moved = pointer_pipeline.process(
+                    pointer_positions,
+                    visible,
+                    enabled=enabled,
+                    suppressed_hands=suppressed_hands,
+                )
+
+                # 7. Histórico de ações simuladas.
                 for request in action_requests:
                     action_name = request.action.value.upper()
 
@@ -239,7 +260,7 @@ def main():
 
                     event_log.append(message)
 
-                # 7. Métricas.
+                # 8. Métricas.
                 frame_count += 1
 
                 if now - fps_window >= 1.0:
@@ -338,8 +359,60 @@ def main():
                         1,
                     )
 
+                # Estado do ponteiro.
+                pointer_y = 220
+                last_position = (
+                    pointer_backend.positions[-1]
+                    if pointer_backend.positions
+                    else None
+                )
+
+                pointer_active = (
+                    pointer_moved and last_position is not None
+                )
+
+                pointer_status = (
+                    "ACTIVE"
+                    if pointer_active
+                    else "INACTIVE"
+                )
+
+                pointer_color = (
+                    (80, 255, 100)
+                    if pointer_active
+                    else (150, 150, 150)
+                )
+
+                cv2.putText(
+                    frame,
+                    f"POINTER (DRY RUN): {pointer_status}",
+                    (15, pointer_y),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.48,
+                    pointer_color,
+                    2,
+                )
+
+                if last_position is not None:
+                    pointer_coordinates = (
+                        f"X: {last_position.x:.3f} | "
+                        f"Y: {last_position.y:.3f}"
+                    )
+                else:
+                    pointer_coordinates = "X: -- | Y: --"
+
+                cv2.putText(
+                    frame,
+                    pointer_coordinates,
+                    (15, pointer_y + 25),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.42,
+                    (220, 220, 220),
+                    1,
+                )
+
                 # Intenções ativas.
-                intent_y = 230
+                intent_y = 265
 
                 cv2.putText(
                     frame,
@@ -380,7 +453,7 @@ def main():
                     )
 
                 # Ações simuladas ativas.
-                action_y = 290
+                action_y = 325
 
                 cv2.putText(
                     frame,
@@ -419,7 +492,7 @@ def main():
                     )
 
                 # Histórico.
-                log_y = 350
+                log_y = 385
 
                 cv2.putText(
                     frame,
@@ -432,10 +505,15 @@ def main():
                 )
 
                 for index, event_text in enumerate(event_log):
+                    y = log_y + 23 + index * 18
+
+                    if y >= height - 35:
+                        break
+
                     cv2.putText(
                         frame,
                         event_text,
-                        (15, log_y + 23 + index * 18),
+                        (15, y),
                         cv2.FONT_HERSHEY_SIMPLEX,
                         0.37,
                         (255, 220, 120),
@@ -446,9 +524,9 @@ def main():
                 cv2.putText(
                     frame,
                     "A: ARM | D: DEACTIVATE | ESC: EMERGENCY | Q: QUIT",
-                    (15, height - 20),
+                    (15, height - 12),
                     cv2.FONT_HERSHEY_SIMPLEX,
-                    0.42,
+                    0.38,
                     (220, 220, 220),
                     1,
                 )
@@ -462,6 +540,7 @@ def main():
 
                 if key == ord("a"):
                     pipeline.reset()
+                    pointer_backend.reset()
                     engine.reset()
                     suppressed_hands.clear()
 
@@ -473,6 +552,7 @@ def main():
                 elif key == ord("d"):
                     activation.deactivate()
                     pipeline.reset()
+                    pointer_backend.reset()
                     engine.reset()
                     suppressed_hands.clear()
 
@@ -483,6 +563,7 @@ def main():
                 elif key == 27:
                     activation.emergency_stop()
                     pipeline.reset()
+                    pointer_backend.reset()
                     engine.reset()
                     suppressed_hands.clear()
 
@@ -495,6 +576,7 @@ def main():
 
     finally:
         pipeline.reset()
+        pointer_backend.reset()
         engine.reset()
         tracker.reset()
         camera.release()
