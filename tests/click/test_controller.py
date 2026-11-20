@@ -31,8 +31,8 @@ def test_second_pinch_outside_window_emits_two_single_clicks():
 def test_long_pinch_does_not_click():
     controller = ClickController()
     assert controller.process(Gesture.PINCH, now=1.0) == 0
-    assert controller.process(Gesture.PINCH, now=1.3) == 0
-    assert controller.process(Gesture.OPEN_PALM, now=1.31) == 0
+    assert controller.process(Gesture.PINCH, now=1.6) == 0
+    assert controller.process(Gesture.OPEN_PALM, now=1.61) == 0
 
 
 def test_long_second_pinch_preserves_first_single_click():
@@ -40,7 +40,7 @@ def test_long_second_pinch_preserves_first_single_click():
     controller.process(Gesture.PINCH, now=1.0)
     controller.process(Gesture.OPEN_PALM, now=1.05)
     controller.process(Gesture.PINCH, now=1.15)
-    assert controller.process(Gesture.OPEN_PALM, now=1.5) == 1
+    assert controller.process(Gesture.OPEN_PALM, now=1.70) == 1
 
 
 def test_held_pinch_does_not_repeat():
