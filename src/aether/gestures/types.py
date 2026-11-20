@@ -1,0 +1,11 @@
+from enum import Enum
+
+
+class Gesture(Enum):
+    UNKNOWN = "unknown"
+
+    OPEN_PALM = "open_palm"
+    FIST = "fist"
+    POINT = "point"
+    PINCH = "pinch"
+    TWO_FINGERS = "two_fingers"
