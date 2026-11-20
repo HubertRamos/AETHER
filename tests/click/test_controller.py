@@ -4,70 +4,41 @@ from aether.click.controller import ClickController
 from aether.gestures.types import Gesture
 
 
-def test_single_click_waits_for_double_click_window():
+def test_open_palm_emits_one_click_on_activation():
     controller = ClickController()
-    assert controller.process(Gesture.OPEN_PALM, now=1.0) == 0
-    assert controller.process(Gesture.PINCH, now=1.1) == 0
-    assert controller.process(Gesture.PINCH, now=1.39) == 1
+    assert controller.process(Gesture.OPEN_PALM, now=1.0) == 1
 
 
-def test_two_quick_open_palms_emit_one_double_click():
+def test_held_open_palm_does_not_repeat_clicks():
     controller = ClickController()
-    assert controller.process(Gesture.OPEN_PALM, now=1.0) == 0
-    assert controller.process(Gesture.PINCH, now=1.08) == 0
-    assert controller.process(Gesture.OPEN_PALM, now=1.20) == 0
-    assert controller.process(Gesture.PINCH, now=1.28) == 2
-
-
-def test_second_open_palm_outside_window_emits_two_single_clicks():
-    controller = ClickController()
-    assert controller.process(Gesture.OPEN_PALM, now=1.0) == 0
-    assert controller.process(Gesture.PINCH, now=1.05) == 0
-    assert controller.process(Gesture.OPEN_PALM, now=1.40) == 1
-    assert controller.process(Gesture.PINCH, now=1.48) == 0
-    assert controller.process(Gesture.PINCH, now=1.77) == 1
-
-
-def test_long_open_palm_does_not_click():
-    controller = ClickController()
-    assert controller.process(Gesture.OPEN_PALM, now=1.0) == 0
-    assert controller.process(Gesture.OPEN_PALM, now=1.6) == 0
-    assert controller.process(Gesture.PINCH, now=1.61) == 0
-
-
-def test_long_second_open_palm_preserves_first_single_click():
-    controller = ClickController()
-    controller.process(Gesture.OPEN_PALM, now=1.0)
-    controller.process(Gesture.PINCH, now=1.05)
-    controller.process(Gesture.OPEN_PALM, now=1.15)
-    assert controller.process(Gesture.PINCH, now=1.70) == 1
-
-
-def test_held_open_palm_does_not_repeat():
-    controller = ClickController()
-    assert controller.process(Gesture.OPEN_PALM, now=1.0) == 0
+    assert controller.process(Gesture.OPEN_PALM, now=1.0) == 1
     assert controller.process(Gesture.OPEN_PALM, now=1.1) == 0
-    assert controller.process(Gesture.PINCH, now=1.15) == 0
-    assert controller.process(Gesture.PINCH, now=1.44) == 1
+    assert controller.process(Gesture.OPEN_PALM, now=1.2) == 0
 
 
-def test_lost_hand_cancels_pending_click():
+def test_new_open_palm_after_release_emits_another_click():
     controller = ClickController()
-    controller.process(Gesture.OPEN_PALM, now=1.0)
-    controller.process(Gesture.PINCH, now=1.1)
-    assert controller.process(
-        Gesture.UNKNOWN, now=1.2, hand_visible=False
-    ) == 0
-    assert controller.process(Gesture.PINCH, now=2.0) == 0
+    assert controller.process(Gesture.OPEN_PALM, now=1.0) == 1
+    assert controller.process(Gesture.PINCH, now=1.1) == 0
+    assert controller.process(Gesture.OPEN_PALM, now=1.2) == 1
 
 
-def test_disabling_cancels_pending_click():
+def test_lost_hand_resets_open_palm_latch():
     controller = ClickController()
-    controller.process(Gesture.OPEN_PALM, now=1.0)
-    controller.process(Gesture.PINCH, now=1.1)
+    assert controller.process(Gesture.OPEN_PALM, now=1.0) == 1
     assert controller.process(
-        Gesture.PINCH, now=1.2, enabled=False
+        Gesture.UNKNOWN, now=1.1, hand_visible=False
     ) == 0
+    assert controller.process(Gesture.OPEN_PALM, now=1.2) == 1
+
+
+def test_disabling_resets_open_palm_latch():
+    controller = ClickController()
+    assert controller.process(Gesture.OPEN_PALM, now=1.0) == 1
+    assert controller.process(
+        Gesture.OPEN_PALM, now=1.1, enabled=False
+    ) == 0
+    assert controller.process(Gesture.OPEN_PALM, now=1.2) == 1
 
 
 def test_invalid_inputs_are_rejected():
