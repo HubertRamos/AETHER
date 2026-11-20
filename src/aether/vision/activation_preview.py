@@ -9,6 +9,7 @@ import cv2
 import mediapipe as mp
 
 from aether.activation.coordinator import ActivationCoordinator
+from aether.click import ClickController, ClickPipeline, DryRunClickBackend, YdotoolClickBackend
 from aether.actions import ActionPipeline
 from aether.gestures.classifier import classify
 from aether.gestures.engine import GestureEngine
@@ -40,6 +41,12 @@ def main():
 
     parser.add_argument(
         "--pointer-backend",
+        choices=("dry-run", "ydotool"),
+        default="dry-run",
+    )
+
+    parser.add_argument(
+        "--click-backend",
         choices=("dry-run", "ydotool"),
         default="dry-run",
     )
@@ -120,6 +127,18 @@ def main():
         controller=scroll_controller,
         backend=scroll_backend,
         scroll_hand="Right",
+    )
+
+    # Click Control: pinça rápida da mão esquerda.
+    click_backend = (
+        YdotoolClickBackend()
+        if args.click_backend == "ydotool"
+        else DryRunClickBackend()
+    )
+    click_pipeline = ClickPipeline(
+        controller=ClickController(double_click_interval=0.28),
+        backend=click_backend,
+        click_hand="Left",
     )
 
     event_log = deque(maxlen=8)
@@ -217,9 +236,7 @@ def main():
                         ),
                     )
 
-                    # Ponto médio entre indicador e dedo médio
-                    # para o Touchpad.
-                                        # Centro da palma para controlar o Touchpad.
+                    # Centro da palma para controlar o Touchpad.
                     palm_points = [
                         landmarks[0],
                         landmarks[5],
@@ -354,6 +371,18 @@ def main():
                     and "Right" not in suppressed_hands
                 )
 
+                # 8. Click Control.
+                click_count = click_pipeline.process(
+                    visible,
+                    now=now,
+                    enabled=enabled,
+                    suppressed_hands=suppressed_hands,
+                )
+                if click_count == 1:
+                    event_log.append("LEFT: CLICK")
+                elif click_count == 2:
+                    event_log.append("LEFT: DOUBLE CLICK")
+
                 # 8. Histórico de ações simuladas.
                 for request in action_requests:
                     action_name = request.action.value.upper()
@@ -395,7 +424,7 @@ def main():
                 # Cabeçalho.
                 cv2.putText(
                     frame,
-                    "AETHER 1.3 | GESTURE SYNCHRONIZATION",
+                    "AETHER 1.4 | CLICK CONTROL",
                     (15, 30),
                     cv2.FONT_HERSHEY_SIMPLEX,
                     0.60,
@@ -694,6 +723,7 @@ def main():
                     pipeline.reset()
                     pointer_pipeline.reset()
                     scroll_pipeline.reset()
+                    click_pipeline.reset()
                     engine.reset()
                     suppressed_hands.clear()
 
@@ -707,6 +737,7 @@ def main():
                     pipeline.reset()
                     pointer_pipeline.reset()
                     scroll_pipeline.reset()
+                    click_pipeline.reset()
                     engine.reset()
                     suppressed_hands.clear()
                     pointer_last_position = None
@@ -720,6 +751,7 @@ def main():
                     pipeline.reset()
                     pointer_pipeline.reset()
                     scroll_pipeline.reset()
+                    click_pipeline.reset()
                     engine.reset()
                     suppressed_hands.clear()
                     pointer_last_position = None
@@ -735,6 +767,7 @@ def main():
         pipeline.reset()
         pointer_pipeline.reset()
         scroll_pipeline.reset()
+        click_pipeline.reset()
         scroll_backend.close()
         engine.reset()
         tracker.reset()
