@@ -181,3 +181,13 @@ def test_left_click_gesture():
 def test_right_click_gesture():
     hand = make_hand(extended=(False, False, True, True), thumb_extended=True)
     assert classify(hand) == Gesture.RIGHT_CLICK
+
+
+def test_left_press_gesture_with_thumb_lowered():
+    hand = make_hand(extended=(True, True, False, False), thumb_extended=False)
+    assert classify(hand) == Gesture.LEFT_PRESS
+
+
+def test_right_press_gesture_with_thumb_lowered():
+    hand = make_hand(extended=(False, False, True, True), thumb_extended=False)
+    assert classify(hand) == Gesture.RIGHT_PRESS
