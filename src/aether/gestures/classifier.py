@@ -44,8 +44,10 @@ def classify(
 ) -> Gesture:
     """Classifica uma mão e resolve gestos contextuais quando hand é informado.
 
-    A pose TWO_FINGERS permanece disponível para a mão direita. Na mão
-    esquerda, a mesma pose com o polegar recolhido representa LEFT_PRESS.
+    Na mão direita, THREE_FINGER_PAN usa indicador, médio e anelar
+    estendidos com o mindinho recolhido; TWO_FINGERS continua reservado ao
+    Touchpad. Na mão esquerda, TWO_FINGERS com o polegar recolhido representa
+    LEFT_PRESS.
     """
     if len(landmarks) != 21:
         raise ValueError("Uma mão precisa conter exatamente 21 landmarks.")
