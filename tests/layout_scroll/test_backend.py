@@ -1,5 +1,3 @@
-from unittest.mock import call
-
 import pytest
 
 from aether.layout_scroll.backend import (
@@ -28,7 +26,10 @@ def test_umbriel_backend_sends_native_layout_scroll_action(monkeypatch):
     def fake_run(command, *, check, timeout):
         calls.append((command, check, timeout))
 
-    monkeypatch.setattr("aether.layout_scroll.backend.subprocess.run", fake_run)
+    monkeypatch.setattr(
+        "aether.layout_scroll.backend.subprocess.run",
+        fake_run,
+    )
     backend = UmbrielLayoutScrollBackend()
 
     backend.scroll("left")
@@ -41,7 +42,12 @@ def test_umbriel_backend_sends_native_layout_scroll_action(monkeypatch):
 
 
 def test_umbriel_backend_rejects_invalid_direction(monkeypatch):
-    run = __import__("subprocess").run
-    monkeypatch.setattr("aether.layout_scroll.backend.subprocess.run", lambda *a, **k: pytest.fail("must not run"))
+    def unexpected_run(*args, **kwargs):
+        pytest.fail("subprocess must not run for an invalid direction")
+
+    monkeypatch.setattr(
+        "aether.layout_scroll.backend.subprocess.run",
+        unexpected_run,
+    )
     with pytest.raises(ValueError):
         UmbrielLayoutScrollBackend().scroll("up")
