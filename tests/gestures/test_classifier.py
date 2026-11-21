@@ -212,3 +212,16 @@ def test_left_press_is_contextual_to_left_hand():
 def test_invalid_hand_label():
     with pytest.raises(ValueError):
         classify(make_hand(), hand="Middle")
+
+
+def test_three_finger_pan_is_right_hand_only():
+    hand = make_hand(extended=(True, True, True, False))
+    assert classify(hand, hand="Right") == Gesture.THREE_FINGER_PAN
+    assert classify(hand, hand="Left") == Gesture.UNKNOWN
+
+
+def test_three_finger_pan_does_not_replace_two_finger_touchpad():
+    two_fingers = make_hand(extended=(True, True, False, False))
+    three_fingers = make_hand(extended=(True, True, True, False))
+    assert classify(two_fingers, hand="Right") == Gesture.TWO_FINGERS
+    assert classify(three_fingers, hand="Right") == Gesture.THREE_FINGER_PAN
