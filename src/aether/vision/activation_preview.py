@@ -15,6 +15,12 @@ from aether.gestures.classifier import classify
 from aether.gestures.engine import GestureEngine
 from aether.gestures.tracker import HandTracker
 from aether.gestures.types import Gesture
+from aether.layout_scroll import (
+    DryRunLayoutScrollBackend,
+    LayoutScrollController,
+    LayoutScrollPipeline,
+    UmbrielLayoutScrollBackend,
+)
 from aether.pointer import (
     DryRunPointerBackend,
     PointerController,
@@ -49,6 +55,13 @@ def main():
         "--click-backend",
         choices=("dry-run", "ydotool"),
         default="dry-run",
+    )
+
+    parser.add_argument(
+        "--layout-backend",
+        choices=("dry-run", "umbriel"),
+        default="dry-run",
+        help="Backend for right-hand three-finger Umbriel layout panning",
     )
 
     parser.add_argument("--screen-width", type=int, default=682)
@@ -127,6 +140,21 @@ def main():
         controller=scroll_controller,
         backend=scroll_backend,
         scroll_hand="Right",
+    )
+
+    # Three-finger pan: desloca a faixa de colunas do workspace no Umbriel.
+    layout_scroll_backend = (
+        UmbrielLayoutScrollBackend()
+        if args.layout_backend == "umbriel"
+        else DryRunLayoutScrollBackend()
+    )
+    layout_scroll_pipeline = LayoutScrollPipeline(
+        controller=LayoutScrollController(
+            threshold=0.055,
+            cooldown=0.14,
+        ),
+        backend=layout_scroll_backend,
+        pan_hand="Right",
     )
 
     # Click Control: pinça rápida da mão esquerda.
@@ -367,6 +395,19 @@ def main():
                     enabled=enabled,
                     suppressed_hands=suppressed_hands,
                 )
+
+                # 7b. Deslocamento horizontal do layout (três dedos).
+                layout_scroll_result = layout_scroll_pipeline.process(
+                    scroll_positions,
+                    visible,
+                    now=now,
+                    enabled=enabled,
+                    suppressed_hands=suppressed_hands,
+                )
+                if layout_scroll_result is not None:
+                    event_log.append(
+                        f"LAYOUT: SCROLL {layout_scroll_result.upper()}"
+                    )
 
                 scroll_active = (
                     enabled
@@ -747,6 +788,7 @@ def main():
                     pipeline.reset()
                     pointer_pipeline.reset()
                     scroll_pipeline.reset()
+                    layout_scroll_pipeline.reset()
                     click_pipeline.reset()
                     engine.reset()
                     suppressed_hands.clear()
@@ -761,6 +803,7 @@ def main():
                     pipeline.reset()
                     pointer_pipeline.reset()
                     scroll_pipeline.reset()
+                    layout_scroll_pipeline.reset()
                     click_pipeline.reset()
                     engine.reset()
                     suppressed_hands.clear()
@@ -775,6 +818,7 @@ def main():
                     pipeline.reset()
                     pointer_pipeline.reset()
                     scroll_pipeline.reset()
+                    layout_scroll_pipeline.reset()
                     click_pipeline.reset()
                     engine.reset()
                     suppressed_hands.clear()
@@ -791,6 +835,7 @@ def main():
         pipeline.reset()
         pointer_pipeline.reset()
         scroll_pipeline.reset()
+        layout_scroll_pipeline.reset()
         click_pipeline.reset()
         scroll_backend.close()
         engine.reset()
