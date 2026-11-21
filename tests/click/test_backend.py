@@ -39,15 +39,14 @@ def test_dry_run_backend_records_button():
     assert backend.buttons == ["right"]
 
 
-@pytest.mark.parametrize(("method", "command", "button"), [
-    ("press", "mousedown", "left"),
-    ("release", "mouseup", "left"),
-    ("press", "mousedown", "right"),
-    ("release", "mouseup", "right"),
+@pytest.mark.parametrize(("method", "code", "button"), [
+    ("press", "0x40", "left"),
+    ("release", "0x80", "left"),
+    ("press", "0x41", "right"),
+    ("release", "0x81", "right"),
 ])
-def test_ydotool_backend_holds_and_releases(monkeypatch, method, command, button):
+def test_ydotool_backend_holds_and_releases(monkeypatch, method, code, button):
     run = Mock()
     monkeypatch.setattr("aether.click.backend.subprocess.run", run)
     getattr(YdotoolClickBackend(), method)(button=button)
-    code = "0xC0" if button == "left" else "0xC1"
-    run.assert_called_once_with(["ydotool", command, code], check=True, timeout=2)
+    run.assert_called_once_with(["ydotool", "click", code], check=True, timeout=2)
