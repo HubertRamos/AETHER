@@ -115,6 +115,7 @@ def main():
                     raw_gesture = classify(
                         landmarks,
                         image_aspect_ratio=aspect_ratio,
+                        hand=label,
                     )
 
                     detected[label] = raw_gesture

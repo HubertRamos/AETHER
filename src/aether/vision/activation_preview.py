@@ -9,11 +9,18 @@ import cv2
 import mediapipe as mp
 
 from aether.activation.coordinator import ActivationCoordinator
+from aether.click import ClickController, ClickPipeline, DryRunClickBackend, YdotoolClickBackend
 from aether.actions import ActionPipeline
 from aether.gestures.classifier import classify
 from aether.gestures.engine import GestureEngine
 from aether.gestures.tracker import HandTracker
 from aether.gestures.types import Gesture
+from aether.window_move import (
+    DryRunWindowMoveBackend,
+    UmbrielWindowMoveBackend,
+    WindowMoveController,
+    WindowMovePipeline,
+)
 from aether.pointer import (
     DryRunPointerBackend,
     PointerController,
@@ -42,6 +49,19 @@ def main():
         "--pointer-backend",
         choices=("dry-run", "ydotool"),
         default="dry-run",
+    )
+
+    parser.add_argument(
+        "--click-backend",
+        choices=("dry-run", "ydotool"),
+        default="dry-run",
+    )
+
+    parser.add_argument(
+        "--window-move-backend",
+        choices=("dry-run", "umbriel"),
+        default="dry-run",
+        help="Backend for right-hand three-finger focused-window movement",
     )
 
     parser.add_argument("--screen-width", type=int, default=682)
@@ -122,6 +142,33 @@ def main():
         scroll_hand="Right",
     )
 
+    # Three-finger pan: move a janela focada para a coluna vizinha.
+    window_move_backend = (
+        UmbrielWindowMoveBackend()
+        if args.window_move_backend == "umbriel"
+        else DryRunWindowMoveBackend()
+    )
+    window_move_pipeline = WindowMovePipeline(
+        controller=WindowMoveController(
+            threshold=0.055,
+            cooldown=0.14,
+        ),
+        backend=window_move_backend,
+        move_hand="Right",
+    )
+
+    # Click Control: pinça rápida da mão esquerda.
+    click_backend = (
+        YdotoolClickBackend()
+        if args.click_backend == "ydotool"
+        else DryRunClickBackend()
+    )
+    click_pipeline = ClickPipeline(
+        controller=ClickController(double_click_interval=0.28),
+        backend=click_backend,
+        click_hand="Left",
+    )
+
     event_log = deque(maxlen=8)
     suppressed_hands: set[str] = set()
 
@@ -197,9 +244,13 @@ def main():
                             "Right": "Left",
                         }.get(handedness, handedness)
 
+                    # Margem um pouco maior apenas para a mão esquerda.
+                    # A direita preserva o limite padrão do classificador.
                     raw_gesture = classify(
                         landmarks,
                         image_aspect_ratio=aspect_ratio,
+                        pinch_threshold=0.32 if label == "Left" else 0.25,
+                        hand=label,
                     )
 
                     detected[label] = raw_gesture
@@ -217,9 +268,7 @@ def main():
                         ),
                     )
 
-                    # Ponto médio entre indicador e dedo médio
-                    # para o Touchpad.
-                                        # Centro da palma para controlar o Touchpad.
+                    # Centro da palma para controlar o Touchpad.
                     palm_points = [
                         landmarks[0],
                         landmarks[5],
@@ -347,12 +396,38 @@ def main():
                     suppressed_hands=suppressed_hands,
                 )
 
+                # 7b. Movimento da janela focada (três dedos).
+                window_move_result = window_move_pipeline.process(
+                    scroll_positions,
+                    visible,
+                    now=now,
+                    enabled=enabled,
+                    suppressed_hands=suppressed_hands,
+                )
+                if window_move_result is not None:
+                    event_log.append(
+                        f"WINDOW: MOVE {window_move_result.upper()}"
+                    )
+
                 scroll_active = (
                     enabled
                     and "Right" in scroll_positions
                     and visible.get("Right") == Gesture.TWO_FINGERS
                     and "Right" not in suppressed_hands
                 )
+
+                # 8. Click Control.
+                click_count = click_pipeline.process(
+                    visible,
+                    now=now,
+                    enabled=enabled,
+                    suppressed_hands=suppressed_hands,
+                )
+                if click_count:
+                    button_name = (
+                        click_pipeline.controller.active_button or "left"
+                    ).upper()
+                    event_log.append(f"{button_name}: CLICK")
 
                 # 8. Histórico de ações simuladas.
                 for request in action_requests:
@@ -395,7 +470,7 @@ def main():
                 # Cabeçalho.
                 cv2.putText(
                     frame,
-                    "AETHER 1.3 | GESTURE SYNCHRONIZATION",
+                    "AETHER 1.4 | CLICK CONTROL",
                     (15, 30),
                     cv2.FONT_HERSHEY_SIMPLEX,
                     0.60,
@@ -446,6 +521,25 @@ def main():
                         state_color,
                         2,
                     )
+
+                # Diagnóstico do Click Control.
+                left_gesture = visible.get("Left", Gesture.UNKNOWN)
+                click_status = (
+                    f"CLICK: {'ENABLED' if enabled else 'DISABLED'} | "
+                    f"LEFT {gesture_name(left_gesture)} | "
+                    f"SUPPRESSED: {'YES' if 'Left' in suppressed_hands else 'NO'} | "
+                    f"GESTURE ACTIVE: {'YES' if click_pipeline.controller.active_button else 'NO'}"
+                )
+
+                cv2.putText(
+                    frame,
+                    click_status,
+                    (15, 140),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.36,
+                    (80, 220, 255) if enabled else (150, 150, 150),
+                    1,
+                )
 
                 # Estado individual das mãos.
                 hand_offset = 165
@@ -694,6 +788,8 @@ def main():
                     pipeline.reset()
                     pointer_pipeline.reset()
                     scroll_pipeline.reset()
+                    window_move_pipeline.reset()
+                    click_pipeline.reset()
                     engine.reset()
                     suppressed_hands.clear()
 
@@ -707,6 +803,8 @@ def main():
                     pipeline.reset()
                     pointer_pipeline.reset()
                     scroll_pipeline.reset()
+                    window_move_pipeline.reset()
+                    click_pipeline.reset()
                     engine.reset()
                     suppressed_hands.clear()
                     pointer_last_position = None
@@ -720,6 +818,8 @@ def main():
                     pipeline.reset()
                     pointer_pipeline.reset()
                     scroll_pipeline.reset()
+                    window_move_pipeline.reset()
+                    click_pipeline.reset()
                     engine.reset()
                     suppressed_hands.clear()
                     pointer_last_position = None
@@ -735,6 +835,8 @@ def main():
         pipeline.reset()
         pointer_pipeline.reset()
         scroll_pipeline.reset()
+        window_move_pipeline.reset()
+        click_pipeline.reset()
         scroll_backend.close()
         engine.reset()
         tracker.reset()

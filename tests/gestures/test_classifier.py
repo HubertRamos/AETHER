@@ -85,6 +85,31 @@ def test_pinch():
     assert classify(hand) == Gesture.PINCH
 
 
+
+def test_pinch_with_left_hand_tolerance():
+    hand = make_hand()
+    # Pequeno afastamento entre as pontas: fora do limite padrão,
+    # mas dentro da tolerância adicional configurada para a mão esquerda.
+    points = hand.copy()
+    points[4] = (points[8][0] + 0.07, points[8][1], points[8][2])
+
+    assert classify(points) == Gesture.UNKNOWN
+    assert classify(points, pinch_threshold=0.32) == Gesture.PINCH
+
+
+def test_pinch_threshold_does_not_change_open_palm():
+    hand = make_hand(
+        extended=(True, True, True, True),
+        thumb_extended=True,
+    )
+
+    assert classify(hand, pinch_threshold=0.32) == Gesture.OPEN_PALM
+
+
+def test_invalid_pinch_threshold():
+    with pytest.raises(ValueError):
+        classify(make_hand(), pinch_threshold=1.1)
+
 def test_invalid_landmark_count():
     with pytest.raises(ValueError):
         classify([(0.0, 0.0, 0.0)] * 10)
@@ -146,3 +171,57 @@ def test_point_with_rotation(angle):
     transformed = transform_hand(hand, angle=angle)
 
     assert classify(transformed) == Gesture.POINT
+
+
+def test_left_click_gesture():
+    hand = make_hand(extended=(True, True, False, False), thumb_extended=True)
+    assert classify(hand) == Gesture.LEFT_CLICK
+
+
+def test_right_click_gesture():
+    hand = make_hand(extended=(False, False, True, True), thumb_extended=True)
+    assert classify(hand) == Gesture.RIGHT_CLICK
+
+
+def test_left_press_gesture_with_thumb_lowered():
+    hand = make_hand(extended=(True, True, False, False), thumb_extended=False)
+    assert classify(hand, hand="Left") == Gesture.LEFT_PRESS
+
+
+def test_right_press_gesture_with_thumb_lowered():
+    hand = make_hand(extended=(False, False, True, True), thumb_extended=False)
+    assert classify(hand, hand="Left") == Gesture.RIGHT_PRESS
+
+
+def test_two_fingers_remains_two_fingers_for_right_hand():
+    hand = make_hand(extended=(True, True, False, False))
+    assert classify(hand, hand="Right") == Gesture.TWO_FINGERS
+
+
+def test_two_fingers_remains_backward_compatible_without_hand():
+    hand = make_hand(extended=(True, True, False, False))
+    assert classify(hand) == Gesture.TWO_FINGERS
+
+
+def test_left_press_is_contextual_to_left_hand():
+    hand = make_hand(extended=(True, True, False, False), thumb_extended=False)
+    assert classify(hand, hand="Left") == Gesture.LEFT_PRESS
+    assert classify(hand, hand="Right") == Gesture.TWO_FINGERS
+
+
+def test_invalid_hand_label():
+    with pytest.raises(ValueError):
+        classify(make_hand(), hand="Middle")
+
+
+def test_three_finger_pan_is_right_hand_only():
+    hand = make_hand(extended=(True, True, True, False))
+    assert classify(hand, hand="Right") == Gesture.THREE_FINGER_PAN
+    assert classify(hand, hand="Left") == Gesture.UNKNOWN
+
+
+def test_three_finger_pan_does_not_replace_two_finger_touchpad():
+    two_fingers = make_hand(extended=(True, True, False, False))
+    three_fingers = make_hand(extended=(True, True, True, False))
+    assert classify(two_fingers, hand="Right") == Gesture.TWO_FINGERS
+    assert classify(three_fingers, hand="Right") == Gesture.THREE_FINGER_PAN
