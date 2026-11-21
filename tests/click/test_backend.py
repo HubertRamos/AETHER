@@ -50,3 +50,24 @@ def test_ydotool_backend_holds_and_releases(monkeypatch, method, code, button):
     monkeypatch.setattr("aether.click.backend.subprocess.run", run)
     getattr(YdotoolClickBackend(), method)(button=button)
     run.assert_called_once_with(["ydotool", "click", code], check=True, timeout=2)
+
+
+
+def test_ydotool_window_drag_holds_super_then_left_mouse(monkeypatch):
+    run = Mock()
+    monkeypatch.setattr("aether.click.backend.subprocess.run", run)
+    YdotoolClickBackend().press_window_drag()
+    assert [call.args[0] for call in run.call_args_list] == [
+        ["ydotool", "key", "125:1"],
+        ["ydotool", "click", "0x40"],
+    ]
+
+
+def test_ydotool_window_drag_releases_left_mouse_then_super(monkeypatch):
+    run = Mock()
+    monkeypatch.setattr("aether.click.backend.subprocess.run", run)
+    YdotoolClickBackend().release_window_drag()
+    assert [call.args[0] for call in run.call_args_list] == [
+        ["ydotool", "click", "0x80"],
+        ["ydotool", "key", "125:0"],
+    ]
