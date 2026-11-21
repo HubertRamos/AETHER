@@ -222,6 +222,7 @@ def main():
                         landmarks,
                         image_aspect_ratio=aspect_ratio,
                         pinch_threshold=0.32 if label == "Left" else 0.25,
+                        hand=label,
                     )
 
                     detected[label] = raw_gesture
