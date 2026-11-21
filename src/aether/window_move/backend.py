@@ -19,13 +19,13 @@ class DryRunWindowMoveBackend:
 
 
 class UmbrielWindowMoveBackend:
-    """Moves the focused window into the neighboring Umbriel column."""
+    """Moves focus to the neighboring Umbriel window."""
 
     def move_focused_window(self, direction: str) -> None:
         if direction not in ("left", "right"):
             raise ValueError("direction must be 'left' or 'right'")
         subprocess.run(
-            ["umbriel", "msg", f"window-move-{direction}"],
+            ["umbriel", "msg", f"window-focus-{direction}"],
             check=True,
             timeout=2,
         )
