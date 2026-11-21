@@ -145,7 +145,7 @@ def main():
     # Three-finger pan: move a janela focada para a coluna vizinha.
     window_move_backend = (
         UmbrielWindowMoveBackend()
-        if args.layout_backend == "umbriel"
+        if args.window_move_backend == "umbriel"
         else DryRunWindowMoveBackend()
     )
     window_move_pipeline = WindowMovePipeline(
@@ -404,7 +404,7 @@ def main():
                     enabled=enabled,
                     suppressed_hands=suppressed_hands,
                 )
-                if layout_scroll_result is not None:
+                if window_move_result is not None:
                     event_log.append(
                         f"WINDOW: MOVE {window_move_result.upper()}"
                     )
