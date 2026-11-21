@@ -36,14 +36,25 @@ def _finger_extended(points: Sequence[Point], mcp: int, pip: int, dip: int) -> b
     return _angle(points[mcp], points[pip], points[dip]) >= 150.0
 
 
-def classify(landmarks, image_aspect_ratio: float = 4 / 3, pinch_threshold: float = 0.25) -> Gesture:
-    """Classifica uma mão usando os 21 landmarks do MediaPipe."""
+def classify(
+    landmarks,
+    image_aspect_ratio: float = 4 / 3,
+    pinch_threshold: float = 0.25,
+    hand: str | None = None,
+) -> Gesture:
+    """Classifica uma mão e resolve gestos contextuais quando hand é informado.
+
+    A pose TWO_FINGERS permanece disponível para a mão direita. Na mão
+    esquerda, a mesma pose com o polegar recolhido representa LEFT_PRESS.
+    """
     if len(landmarks) != 21:
         raise ValueError("Uma mão precisa conter exatamente 21 landmarks.")
     if image_aspect_ratio <= 0:
         raise ValueError("Aspect ratio deve ser positivo.")
     if not 0.0 <= pinch_threshold <= 1.0:
         raise ValueError("pinch_threshold deve estar entre 0 e 1.")
+    if hand not in (None, "Left", "Right"):
+        raise ValueError("hand deve ser 'Left', 'Right' ou None.")
 
     points = [_point(landmark) for landmark in landmarks]
     points = [(x * image_aspect_ratio, y, z * image_aspect_ratio) for x, y, z in points]
@@ -64,13 +75,13 @@ def classify(landmarks, image_aspect_ratio: float = 4 / 3, pinch_threshold: floa
     if pinch_distance <= pinch_threshold:
         return Gesture.PINCH
 
-    # Primeiro reconhece as combinações com polegar abaixado (pressionar).
-    if not thumb and index and middle and not ring and not pinky:
+    # A pose de dois dedos é contextual: na mão esquerda, com o polegar
+    # recolhido, segura o botão esquerdo; na direita, continua rolando.
+    if hand == "Left" and not thumb and index and middle and not ring and not pinky:
         return Gesture.LEFT_PRESS
-    if not thumb and not index and not middle and ring and pinky:
+    if hand == "Left" and not thumb and not index and not middle and ring and pinky:
         return Gesture.RIGHT_PRESS
 
-    # Depois reconhece os cliques simples, com polegar estendido.
     if thumb and index and middle and not ring and not pinky:
         return Gesture.LEFT_CLICK
     if thumb and not index and not middle and ring and pinky:
