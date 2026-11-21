@@ -7,32 +7,22 @@ from .controller import ClickController
 
 
 class ClickPipeline:
-    """Connects left-hand click gestures to the mouse backend."""
+    """Conecta os gestos da mão esquerda ao backend do mouse."""
 
-    def __init__(
-        self,
-        controller: ClickController,
-        backend: ClickBackend,
-        click_hand: str = "Left",
-    ) -> None:
+    def __init__(self, controller: ClickController, backend: ClickBackend, click_hand: str = "Left") -> None:
         if not isinstance(controller, ClickController):
             raise TypeError("controller must be a ClickController")
         if not callable(getattr(backend, "click", None)):
             raise TypeError("backend must implement click()")
+        if not callable(getattr(backend, "press", None)) or not callable(getattr(backend, "release", None)):
+            raise TypeError("backend must implement press() and release()")
         if not isinstance(click_hand, str) or not click_hand.strip():
             raise ValueError("click_hand must be a non-empty string")
         self.controller = controller
         self.backend = backend
         self.click_hand = click_hand
 
-    def process(
-        self,
-        gestures: Mapping[str, Gesture],
-        *,
-        now: float,
-        enabled: bool,
-        suppressed_hands: Set[str] = frozenset(),
-    ) -> int:
+    def process(self, gestures: Mapping[str, Gesture], *, now: float, enabled: bool, suppressed_hands: Set[str] = frozenset()) -> int:
         if not isinstance(gestures, Mapping):
             raise TypeError("gestures must be a mapping")
         if not isinstance(enabled, bool):
@@ -48,11 +38,6 @@ class ClickPipeline:
             raise TypeError("suppressed hand labels must be strings")
 
         suppressed = self.click_hand in suppressed_hands
-        detected = self.click_hand in gestures
-
-        # A brief camera dropout is treated as a release, not as a reset.
-        # This preserves a recognized pinch and lets its click complete.
-        # Explicit suppression or deactivation still cancels all pending input.
         if not enabled or suppressed:
             gesture = Gesture.UNKNOWN
             hand_visible = False
@@ -60,15 +45,24 @@ class ClickPipeline:
             gesture = gestures.get(self.click_hand, Gesture.UNKNOWN)
             hand_visible = True
 
-        count = self.controller.process(
-            gesture,
-            now=now,
-            hand_visible=hand_visible,
-            enabled=enabled,
-        )
+        count = self.controller.process(gesture, now=now, hand_visible=hand_visible, enabled=enabled)
+        released = self.controller.released_button
+        if released is not None:
+            self.backend.release(button=released)
+
+        pressed = self.controller.pressed_button
+        if pressed is not None and released is None and gesture in (Gesture.LEFT_PRESS, Gesture.RIGHT_PRESS):
+            if getattr(self, "_last_pressed_button", None) != pressed:
+                self.backend.press(button=pressed)
+        self._last_pressed_button = pressed
+
         if count:
             self.backend.click(count=count, button=self.controller.active_button or "left")
         return count
 
     def reset(self) -> None:
         self.controller.reset()
+        released = self.controller.released_button
+        if released is not None:
+            self.backend.release(button=released)
+        self._last_pressed_button = None
