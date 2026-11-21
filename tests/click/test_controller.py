@@ -49,3 +49,30 @@ def test_invalid_inputs_are_rejected():
         controller.process(Gesture.PINCH, now=float("nan"))
     with pytest.raises(ValueError):
         ClickController(double_click_interval=0)
+
+
+def test_left_click_gesture_emits_one_left_click():
+    controller = ClickController()
+    assert controller.process(Gesture.LEFT_CLICK, now=1.0) == 1
+    assert controller.active_button == "left"
+    assert controller.process(Gesture.LEFT_CLICK, now=1.1) == 0
+
+
+def test_right_click_gesture_emits_one_right_click():
+    controller = ClickController()
+    assert controller.process(Gesture.RIGHT_CLICK, now=1.0) == 1
+    assert controller.active_button == "right"
+    assert controller.process(Gesture.RIGHT_CLICK, now=1.1) == 0
+
+
+def test_pinch_remains_left_click():
+    controller = ClickController()
+    assert controller.process(Gesture.PINCH, now=1.0) == 1
+    assert controller.active_button == "left"
+
+
+def test_switching_from_left_to_right_emits_new_click():
+    controller = ClickController()
+    assert controller.process(Gesture.LEFT_CLICK, now=1.0) == 1
+    assert controller.process(Gesture.RIGHT_CLICK, now=1.1) == 1
+    assert controller.active_button == "right"
