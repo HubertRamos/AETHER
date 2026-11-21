@@ -154,7 +154,7 @@ def main():
             cooldown=0.14,
         ),
         backend=window_move_backend,
-        pan_hand="Right",
+        move_hand="Right",
     )
 
     # Click Control: pinça rápida da mão esquerda.
