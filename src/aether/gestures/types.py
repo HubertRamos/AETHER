@@ -8,6 +8,7 @@ class Gesture(Enum):
     POINT = "point"
     PINCH = "pinch"
     TWO_FINGERS = "two_fingers"
+    THREE_FINGER_PAN = "three_finger_pan"
     LEFT_CLICK = "left_click"
     RIGHT_CLICK = "right_click"
     LEFT_PRESS = "left_press"
