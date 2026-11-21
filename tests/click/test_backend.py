@@ -27,3 +27,21 @@ def test_ydotool_backend_executes_left_clicks(monkeypatch):
 def test_backend_rejects_invalid_count():
     with pytest.raises(ValueError):
         DryRunClickBackend().click(count=3)
+
+
+def test_ydotool_backend_executes_right_click(monkeypatch):
+    run = Mock()
+    monkeypatch.setattr("aether.click.backend.subprocess.run", run)
+    YdotoolClickBackend().click(button="right")
+    run.assert_called_once_with(
+        ["ydotool", "click", "0xC1"],
+        check=True,
+        timeout=2,
+    )
+
+
+def test_dry_run_backend_records_button():
+    backend = DryRunClickBackend()
+    backend.click(button="right")
+    assert backend.clicks == [1]
+    assert backend.buttons == ["right"]
