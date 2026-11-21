@@ -23,28 +23,35 @@ def test_only_left_hand_pinch_clicks():
     assert pipeline.process(
         {"Right": Gesture.PINCH}, now=1.0, enabled=True
     ) == 0
-    assert backend.clicks == []
-
-
-def test_left_hand_single_click():
-    pipeline, backend = create_pipeline()
-    pipeline.process({"Left": Gesture.PINCH}, now=1.0, enabled=True)
-    pipeline.process({"Left": Gesture.OPEN_PALM}, now=1.1, enabled=True)
     assert pipeline.process(
-        {"Left": Gesture.OPEN_PALM}, now=1.39, enabled=True
+        {"Left": Gesture.PINCH}, now=1.1, enabled=True
     ) == 1
     assert backend.clicks == [1]
 
 
-def test_left_hand_double_click():
+def test_held_left_pinch_emits_only_one_click():
     pipeline, backend = create_pipeline()
-    pipeline.process({"Left": Gesture.PINCH}, now=1.0, enabled=True)
-    pipeline.process({"Left": Gesture.OPEN_PALM}, now=1.05, enabled=True)
-    pipeline.process({"Left": Gesture.PINCH}, now=1.15, enabled=True)
     assert pipeline.process(
-        {"Left": Gesture.OPEN_PALM}, now=1.20, enabled=True
-    ) == 2
-    assert backend.clicks == [2]
+        {"Left": Gesture.PINCH}, now=1.0, enabled=True
+    ) == 1
+    assert pipeline.process(
+        {"Left": Gesture.PINCH}, now=1.1, enabled=True
+    ) == 0
+    assert backend.clicks == [1]
+
+
+def test_releasing_and_repeating_pinch_emits_another_click():
+    pipeline, backend = create_pipeline()
+    assert pipeline.process(
+        {"Left": Gesture.PINCH}, now=1.0, enabled=True
+    ) == 1
+    assert pipeline.process(
+        {"Left": Gesture.POINT}, now=1.1, enabled=True
+    ) == 0
+    assert pipeline.process(
+        {"Left": Gesture.PINCH}, now=1.2, enabled=True
+    ) == 1
+    assert backend.clicks == [1, 1]
 
 
 def test_suppressed_hand_does_not_click():
@@ -56,35 +63,32 @@ def test_suppressed_hand_does_not_click():
     assert backend.clicks == []
 
 
-def test_disabled_pipeline_cancels_pending_click():
+def test_disabled_pipeline_cancels_pinch_latch():
     pipeline, backend = create_pipeline()
-    pipeline.process({"Left": Gesture.PINCH}, now=1.0, enabled=True)
-    pipeline.process({"Left": Gesture.OPEN_PALM}, now=1.1, enabled=True)
-    pipeline.process({"Left": Gesture.OPEN_PALM}, now=1.2, enabled=False)
-    assert backend.clicks == []
+    assert pipeline.process(
+        {"Left": Gesture.PINCH}, now=1.0, enabled=True
+    ) == 1
+    assert pipeline.process(
+        {"Left": Gesture.PINCH}, now=1.1, enabled=False
+    ) == 0
+    assert pipeline.process(
+        {"Left": Gesture.PINCH}, now=1.2, enabled=True
+    ) == 1
+    assert backend.clicks == [1, 1]
 
 
-def test_brief_hand_dropout_releases_pinch_and_completes_click():
+def test_missing_hand_releases_pinch_latch():
     pipeline, backend = create_pipeline()
-    pipeline.process({"Left": Gesture.PINCH}, now=1.0, enabled=True)
+    assert pipeline.process(
+        {"Left": Gesture.PINCH}, now=1.0, enabled=True
+    ) == 1
     assert pipeline.process(
         {"Right": Gesture.POINT}, now=1.1, enabled=True
     ) == 0
     assert pipeline.process(
-        {"Right": Gesture.POINT}, now=1.39, enabled=True
+        {"Left": Gesture.PINCH}, now=1.2, enabled=True
     ) == 1
-    assert backend.clicks == [1]
-
-
-def test_missing_hand_does_not_cancel_pending_click():
-    pipeline, backend = create_pipeline()
-    pipeline.process({"Left": Gesture.PINCH}, now=1.0, enabled=True)
-    pipeline.process({"Left": Gesture.OPEN_PALM}, now=1.1, enabled=True)
-    pipeline.process({"Right": Gesture.POINT}, now=1.2, enabled=True)
-    assert pipeline.process(
-        {"Right": Gesture.POINT}, now=1.39, enabled=True
-    ) == 1
-    assert backend.clicks == [1]
+    assert backend.clicks == [1, 1]
 
 
 def test_invalid_mapping_is_rejected():
