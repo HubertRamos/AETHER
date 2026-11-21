@@ -16,6 +16,8 @@ class ClickPipeline:
             raise TypeError("backend must implement click()")
         if not callable(getattr(backend, "press", None)) or not callable(getattr(backend, "release", None)):
             raise TypeError("backend must implement press() and release()")
+        if not callable(getattr(backend, "press_window_drag", None)) or not callable(getattr(backend, "release_window_drag", None)):
+            raise TypeError("backend must implement window-drag press and release")
         if not isinstance(click_hand, str) or not click_hand.strip():
             raise ValueError("click_hand must be a non-empty string")
         self.controller = controller
