@@ -10,6 +10,14 @@ class FakeClickBackend:
         self.buttons = []
         self.presses = []
         self.releases = []
+        self.window_drag_starts = 0
+        self.window_drag_ends = 0
+
+    def press_window_drag(self):
+        self.window_drag_starts += 1
+
+    def release_window_drag(self):
+        self.window_drag_ends += 1
 
     def click(self, count=1, button="left"):
         self.clicks.append(count)
@@ -97,16 +105,23 @@ def test_click_gestures_are_only_read_from_left_hand():
     assert backend.clicks == []
 
 
-@pytest.mark.parametrize(("gesture", "button"), [
-    (Gesture.LEFT_PRESS, "left"),
-    (Gesture.RIGHT_PRESS, "right"),
-])
-def test_press_and_release_are_sent_to_backend(gesture, button):
+def test_left_press_and_release_are_sent_to_backend():
     pipeline, backend = create_pipeline()
-    pipeline.process({"Left": gesture}, now=1.0, enabled=True)
+    pipeline.process({"Left": Gesture.LEFT_PRESS}, now=1.0, enabled=True)
     pipeline.process({"Left": Gesture.POINT}, now=1.1, enabled=True)
-    assert backend.presses == [button]
-    assert backend.releases == [button]
+    assert backend.presses == ["left"]
+    assert backend.releases == ["left"]
+
+
+def test_right_press_starts_and_ends_window_drag():
+    pipeline, backend = create_pipeline()
+    pipeline.process({"Left": Gesture.RIGHT_PRESS}, now=1.0, enabled=True)
+    pipeline.process({"Left": Gesture.RIGHT_PRESS}, now=1.1, enabled=True)
+    pipeline.process({"Left": Gesture.POINT}, now=1.2, enabled=True)
+    assert backend.window_drag_starts == 1
+    assert backend.window_drag_ends == 1
+    assert backend.presses == []
+    assert backend.releases == []
 
 
 def test_held_button_is_released_when_hand_disappears():
@@ -121,5 +136,7 @@ def test_switching_held_buttons_releases_old_and_presses_new():
     pipeline, backend = create_pipeline()
     pipeline.process({"Left": Gesture.LEFT_PRESS}, now=1.0, enabled=True)
     pipeline.process({"Left": Gesture.RIGHT_PRESS}, now=1.1, enabled=True)
-    assert backend.presses == ["left", "right"]
+    assert backend.presses == ["left"]
     assert backend.releases == ["left"]
+    assert backend.window_drag_starts == 1
+    assert backend.window_drag_ends == 0
