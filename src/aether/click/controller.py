@@ -4,14 +4,15 @@ from aether.gestures.types import Gesture
 
 
 class ClickController:
-    """Temporarily emits one click when OPEN_PALM first becomes stable."""
+    """Emits one left click on the rising edge of a stable PINCH."""
 
     def __init__(
         self,
         double_click_interval: float = 0.28,
         max_pinch_duration: float = 0.45,
     ) -> None:
-        # Keep the existing constructor contract during this diagnostic mode.
+        # Keep the public constructor compatible while click timing is handled
+        # by the desktop backend.
         for name, value in (
             ("double_click_interval", double_click_interval),
             ("max_pinch_duration", max_pinch_duration),
@@ -25,7 +26,7 @@ class ClickController:
                 raise ValueError(f"{name} must be positive")
         self.double_click_interval = float(double_click_interval)
         self.max_pinch_duration = float(max_pinch_duration)
-        self._open_palm_active = False
+        self._pinch_active = False
 
     def process(
         self,
@@ -51,15 +52,15 @@ class ClickController:
             self.reset()
             return 0
 
-        open_palm_active = gesture == Gesture.OPEN_PALM
-        if open_palm_active and not self._open_palm_active:
-            self._open_palm_active = True
+        pinch_active = gesture == Gesture.PINCH
+        if pinch_active and not self._pinch_active:
+            self._pinch_active = True
             return 1
 
-        if not open_palm_active:
-            self._open_palm_active = False
+        if not pinch_active:
+            self._pinch_active = False
 
         return 0
 
     def reset(self) -> None:
-        self._open_palm_active = False
+        self._pinch_active = False
