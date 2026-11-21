@@ -44,6 +44,8 @@ class DryRunClickBackend:
 
 class YdotoolClickBackend:
     BUTTON_CODES = {"left": "0xC0", "right": "0xC1"}
+    BUTTON_DOWN_CODES = {"left": "0x40", "right": "0x41"}
+    BUTTON_UP_CODES = {"left": "0x80", "right": "0x81"}
 
     def _code(self, button: str) -> str:
         try:
@@ -61,7 +63,15 @@ class YdotoolClickBackend:
             subprocess.run(["ydotool", "click", code], check=True, timeout=2)
 
     def press(self, button: str = "left") -> None:
-        subprocess.run(["ydotool", "mousedown", self._code(button)], check=True, timeout=2)
+        try:
+            code = self.BUTTON_DOWN_CODES[button]
+        except (KeyError, TypeError):
+            raise ValueError("button must be 'left' or 'right'") from None
+        subprocess.run(["ydotool", "click", code], check=True, timeout=2)
 
     def release(self, button: str = "left") -> None:
-        subprocess.run(["ydotool", "mouseup", self._code(button)], check=True, timeout=2)
+        try:
+            code = self.BUTTON_UP_CODES[button]
+        except (KeyError, TypeError):
+            raise ValueError("button must be 'left' or 'right'") from None
+        subprocess.run(["ydotool", "click", code], check=True, timeout=2)
