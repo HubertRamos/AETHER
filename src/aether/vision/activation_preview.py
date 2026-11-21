@@ -485,7 +485,7 @@ def main():
                     f"CLICK: {'ENABLED' if enabled else 'DISABLED'} | "
                     f"LEFT {gesture_name(left_gesture)} | "
                     f"SUPPRESSED: {'YES' if 'Left' in suppressed_hands else 'NO'} | "
-                    f"OPEN PALM: {'YES' if click_pipeline.controller._open_palm_active else 'NO'}"
+                    f"GESTURE ACTIVE: {'YES' if click_pipeline.controller.active_button else 'NO'}"
                 )
 
                 cv2.putText(
