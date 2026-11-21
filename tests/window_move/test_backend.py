@@ -19,7 +19,7 @@ def test_dry_run_backend_rejects_invalid_direction(direction):
         DryRunWindowMoveBackend().move_focused_window(direction)
 
 
-def test_umbriel_backend_sends_window_move_actions(monkeypatch):
+def test_umbriel_backend_sends_window_focus_actions(monkeypatch):
     calls = []
 
     def fake_run(command, *, check, timeout):
@@ -31,8 +31,8 @@ def test_umbriel_backend_sends_window_move_actions(monkeypatch):
     backend.move_focused_window("right")
 
     assert calls == [
-        (["umbriel", "msg", "window-move-left"], True, 2),
-        (["umbriel", "msg", "window-move-right"], True, 2),
+        (["umbriel", "msg", "window-focus-left"], True, 2),
+        (["umbriel", "msg", "window-focus-right"], True, 2),
     ]
 
 
