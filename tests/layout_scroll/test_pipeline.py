@@ -17,7 +17,7 @@ def setup_pipeline():
 
 
 def test_three_finger_pan_sends_horizontal_direction(setup_pipeline):
-    pipeline, controller, backend = setup_pipeline
+    pipeline, _, backend = setup_pipeline
     gesture = {"Right": Gesture.THREE_FINGER_PAN}
 
     assert pipeline.process(
@@ -36,7 +36,7 @@ def test_three_finger_pan_sends_horizontal_direction(setup_pipeline):
 
 
 def test_three_finger_pan_can_scroll_left(setup_pipeline):
-    pipeline, controller, backend = setup_pipeline
+    pipeline, _, backend = setup_pipeline
     gesture = {"Right": Gesture.THREE_FINGER_PAN}
     pipeline.process(
         {"Right": PointerPosition(0.60, 0.5)},
