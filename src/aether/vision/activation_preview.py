@@ -381,10 +381,11 @@ def main():
                     enabled=enabled,
                     suppressed_hands=suppressed_hands,
                 )
-                if click_count == 1:
-                    event_log.append("LEFT: CLICK")
-                elif click_count == 2:
-                    event_log.append("LEFT: DOUBLE CLICK")
+                if click_count:
+                    button_name = (
+                        click_pipeline.controller.active_button or "left"
+                    ).upper()
+                    event_log.append(f"{button_name}: CLICK")
 
                 # 8. Histórico de ações simuladas.
                 for request in action_requests:
