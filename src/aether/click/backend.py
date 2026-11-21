@@ -50,6 +50,8 @@ class DryRunClickBackend:
         self.buttons.clear()
         self.presses.clear()
         self.releases.clear()
+        self.window_drag_starts = 0
+        self.window_drag_ends = 0
 
 
 class YdotoolClickBackend:
