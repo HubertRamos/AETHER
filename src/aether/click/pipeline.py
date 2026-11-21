@@ -48,12 +48,18 @@ class ClickPipeline:
         count = self.controller.process(gesture, now=now, hand_visible=hand_visible, enabled=enabled)
         released = self.controller.released_button
         if released is not None:
-            self.backend.release(button=released)
+            if released == "right":
+                self.backend.release_window_drag()
+            else:
+                self.backend.release(button=released)
 
         pressed = self.controller.pressed_button
         if pressed is not None and gesture in (Gesture.LEFT_PRESS, Gesture.RIGHT_PRESS):
             if getattr(self, "_last_pressed_button", None) != pressed:
-                self.backend.press(button=pressed)
+                if pressed == "right":
+                    self.backend.press_window_drag()
+                else:
+                    self.backend.press(button=pressed)
         self._last_pressed_button = pressed
 
         if count:
@@ -64,5 +70,8 @@ class ClickPipeline:
         self.controller.reset()
         released = self.controller.released_button
         if released is not None:
-            self.backend.release(button=released)
+            if released == "right":
+                self.backend.release_window_drag()
+            else:
+                self.backend.release(button=released)
         self._last_pressed_button = None
