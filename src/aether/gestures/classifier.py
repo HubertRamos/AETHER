@@ -124,6 +124,13 @@ def classify(
     if pinch_distance <= pinch_threshold:
         return Gesture.PINCH
 
+    # Gestos de mouse: polegar também precisa estar estendido.
+    if thumb and index and middle and not ring and not pinky:
+        return Gesture.LEFT_CLICK
+
+    if thumb and not index and not middle and ring and pinky:
+        return Gesture.RIGHT_CLICK
+
     # Classificação dos gestos.
     if thumb and index and middle and ring and pinky:
         return Gesture.OPEN_PALM
