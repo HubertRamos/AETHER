@@ -93,6 +93,8 @@ def classify(
         return Gesture.FIST
     if index and not middle and not ring and not pinky:
         return Gesture.POINT
+    if hand == "Right" and index and middle and ring and not pinky:
+        return Gesture.THREE_FINGER_PAN
     if index and middle and not ring and not pinky:
         return Gesture.TWO_FINGERS
     return Gesture.UNKNOWN
