@@ -7,7 +7,7 @@ from .controller import ClickController
 
 
 class ClickPipeline:
-    """Connects the left-hand pinch gesture to the click backend."""
+    """Connects left-hand click gestures to the mouse backend."""
 
     def __init__(
         self,
@@ -67,7 +67,7 @@ class ClickPipeline:
             enabled=enabled,
         )
         if count:
-            self.backend.click(count=count)
+            self.backend.click(count=count, button=self.controller.active_button or "left")
         return count
 
     def reset(self) -> None:
