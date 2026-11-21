@@ -140,3 +140,10 @@ def test_switching_held_buttons_releases_old_and_presses_new():
     assert backend.releases == ["left"]
     assert backend.window_drag_starts == 1
     assert backend.window_drag_ends == 0
+
+def test_reset_releases_active_window_drag():
+    pipeline, backend = create_pipeline()
+    pipeline.process({"Left": Gesture.RIGHT_PRESS}, now=1.0, enabled=True)
+    pipeline.reset()
+    assert backend.window_drag_starts == 1
+    assert backend.window_drag_ends == 1
