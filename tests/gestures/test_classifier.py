@@ -185,9 +185,30 @@ def test_right_click_gesture():
 
 def test_left_press_gesture_with_thumb_lowered():
     hand = make_hand(extended=(True, True, False, False), thumb_extended=False)
-    assert classify(hand) == Gesture.LEFT_PRESS
+    assert classify(hand, hand="Left") == Gesture.LEFT_PRESS
 
 
 def test_right_press_gesture_with_thumb_lowered():
     hand = make_hand(extended=(False, False, True, True), thumb_extended=False)
-    assert classify(hand) == Gesture.RIGHT_PRESS
+    assert classify(hand, hand="Left") == Gesture.RIGHT_PRESS
+
+
+def test_two_fingers_remains_two_fingers_for_right_hand():
+    hand = make_hand(extended=(True, True, False, False))
+    assert classify(hand, hand="Right") == Gesture.TWO_FINGERS
+
+
+def test_two_fingers_remains_backward_compatible_without_hand():
+    hand = make_hand(extended=(True, True, False, False))
+    assert classify(hand) == Gesture.TWO_FINGERS
+
+
+def test_left_press_is_contextual_to_left_hand():
+    hand = make_hand(extended=(True, True, False, False), thumb_extended=False)
+    assert classify(hand, hand="Left") == Gesture.LEFT_PRESS
+    assert classify(hand, hand="Right") == Gesture.TWO_FINGERS
+
+
+def test_invalid_hand_label():
+    with pytest.raises(ValueError):
+        classify(make_hand(), hand="Middle")
