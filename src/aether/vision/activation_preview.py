@@ -15,11 +15,11 @@ from aether.gestures.classifier import classify
 from aether.gestures.engine import GestureEngine
 from aether.gestures.tracker import HandTracker
 from aether.gestures.types import Gesture
-from aether.layout_scroll import (
-    DryRunLayoutScrollBackend,
-    LayoutScrollController,
-    LayoutScrollPipeline,
-    UmbrielLayoutScrollBackend,
+from aether.window_move import (
+    DryRunWindowMoveBackend,
+    UmbrielWindowMoveBackend,
+    WindowMoveController,
+    WindowMovePipeline,
 )
 from aether.pointer import (
     DryRunPointerBackend,
@@ -58,10 +58,10 @@ def main():
     )
 
     parser.add_argument(
-        "--layout-backend",
+        "--window-move-backend",
         choices=("dry-run", "umbriel"),
         default="dry-run",
-        help="Backend for right-hand three-finger Umbriel layout panning",
+        help="Backend for right-hand three-finger focused-window movement",
     )
 
     parser.add_argument("--screen-width", type=int, default=682)
@@ -142,18 +142,18 @@ def main():
         scroll_hand="Right",
     )
 
-    # Three-finger pan: desloca a faixa de colunas do workspace no Umbriel.
-    layout_scroll_backend = (
-        UmbrielLayoutScrollBackend()
+    # Three-finger pan: move a janela focada para a coluna vizinha.
+    window_move_backend = (
+        UmbrielWindowMoveBackend()
         if args.layout_backend == "umbriel"
-        else DryRunLayoutScrollBackend()
+        else DryRunWindowMoveBackend()
     )
-    layout_scroll_pipeline = LayoutScrollPipeline(
-        controller=LayoutScrollController(
+    window_move_pipeline = WindowMovePipeline(
+        controller=WindowMoveController(
             threshold=0.055,
             cooldown=0.14,
         ),
-        backend=layout_scroll_backend,
+        backend=window_move_backend,
         pan_hand="Right",
     )
 
@@ -396,8 +396,8 @@ def main():
                     suppressed_hands=suppressed_hands,
                 )
 
-                # 7b. Deslocamento horizontal do layout (três dedos).
-                layout_scroll_result = layout_scroll_pipeline.process(
+                # 7b. Movimento da janela focada (três dedos).
+                window_move_result = window_move_pipeline.process(
                     scroll_positions,
                     visible,
                     now=now,
@@ -406,7 +406,7 @@ def main():
                 )
                 if layout_scroll_result is not None:
                     event_log.append(
-                        f"LAYOUT: SCROLL {layout_scroll_result.upper()}"
+                        f"WINDOW: MOVE {window_move_result.upper()}"
                     )
 
                 scroll_active = (
@@ -788,7 +788,7 @@ def main():
                     pipeline.reset()
                     pointer_pipeline.reset()
                     scroll_pipeline.reset()
-                    layout_scroll_pipeline.reset()
+                    window_move_pipeline.reset()
                     click_pipeline.reset()
                     engine.reset()
                     suppressed_hands.clear()
@@ -803,7 +803,7 @@ def main():
                     pipeline.reset()
                     pointer_pipeline.reset()
                     scroll_pipeline.reset()
-                    layout_scroll_pipeline.reset()
+                    window_move_pipeline.reset()
                     click_pipeline.reset()
                     engine.reset()
                     suppressed_hands.clear()
@@ -818,7 +818,7 @@ def main():
                     pipeline.reset()
                     pointer_pipeline.reset()
                     scroll_pipeline.reset()
-                    layout_scroll_pipeline.reset()
+                    window_move_pipeline.reset()
                     click_pipeline.reset()
                     engine.reset()
                     suppressed_hands.clear()
@@ -835,7 +835,7 @@ def main():
         pipeline.reset()
         pointer_pipeline.reset()
         scroll_pipeline.reset()
-        layout_scroll_pipeline.reset()
+        window_move_pipeline.reset()
         click_pipeline.reset()
         scroll_backend.close()
         engine.reset()
