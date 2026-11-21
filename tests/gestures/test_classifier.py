@@ -171,3 +171,13 @@ def test_point_with_rotation(angle):
     transformed = transform_hand(hand, angle=angle)
 
     assert classify(transformed) == Gesture.POINT
+
+
+def test_left_click_gesture():
+    hand = make_hand(extended=(True, True, False, False), thumb_extended=True)
+    assert classify(hand) == Gesture.LEFT_CLICK
+
+
+def test_right_click_gesture():
+    hand = make_hand(extended=(False, False, True, True), thumb_extended=True)
+    assert classify(hand) == Gesture.RIGHT_CLICK
